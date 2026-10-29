@@ -308,7 +308,7 @@ with st.sidebar:
 with open ("memo.yaml", "r", encoding = "utf-8") as file:
         memo = yaml.safe_load(file)
 
-valid_pin = st.secrets.get["secret_pin"]
+valid_pin = st.secrets.get("secret_pin")
         
 if uploaded_files and grader.strip() and pin == valid_pin:
     total_scripts = len(uploaded_files)
