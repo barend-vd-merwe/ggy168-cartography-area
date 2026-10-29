@@ -298,7 +298,7 @@ with st.sidebar:
     grader = st.text_input("Name of grader", key="graderName")
     pin = st.text_input("Enter PIN number",
                         type = "password",
-                        key = "secret_pin")
+                        key = "user_pin")
     uploaded_files = st.file_uploader("Select the student submission",
                                       type = ["png"],
                                       accept_multiple_files = True,
@@ -307,8 +307,10 @@ with st.sidebar:
 
 with open ("memo.yaml", "r", encoding = "utf-8") as file:
         memo = yaml.safe_load(file)
-    
-if uploaded_files and grader.strip() and pin == st.secrets["secret_pin"]:
+
+valid_pin = st.secrets.get["secret_pin"]
+        
+if uploaded_files and grader.strip() and pin == valid_pin:
     total_scripts = len(uploaded_files)
     current_script = st.session_state["script_index"] + 1
     progress = min(current_script / total_scripts, 1.0)
