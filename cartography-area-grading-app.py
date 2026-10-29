@@ -297,7 +297,7 @@ if "editor_version" not in st.session_state:
 with st.sidebar:
     grader = st.text_input("Name of grader", key="graderName")
     pin = st.text_input("Enter PIN number",
-                        type = password,
+                        type = "password",
                         key = "secret_pin")
     uploaded_files = st.file_uploader("Select the student submission",
                                       type = ["png"],
