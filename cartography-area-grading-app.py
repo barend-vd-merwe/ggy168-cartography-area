@@ -10,6 +10,7 @@ from streamlit_image_zoom import image_zoom
 import base64
 from datetime import datetime
 import yaml
+from streamlit_gsheets import GSheetsConnection
 
 # custom functions
 # ------------------------------------------------------------
@@ -74,6 +75,10 @@ def submission_viewer(img_url, height=1000, max_zoom_ratio=4.0, key="osd_viewer"
 
 # ------------------------------------------------------------
 def grade_submission():
+    edited_df["length"] = pd.to_numeric(edited_df["length"])
+    edited_df["width"] = pd.to_numeric(edited_df["width"])
+    edited_df["area"] = pd.to_numeric(edited_df["area"])
+    
     memo_dict = {
         "s" : [1,2,3,4],
         "l" : [memo["strip1"]["length"]["ans"],
@@ -159,6 +164,7 @@ def grade_submission():
     ta_fc = memo["total"]["fc"]
     ta_pc = memo["total"]["pc"]
     ta_sub = float(st.session_state["sub_ta"])
+    ta_sub_unt = st.session_state["sub_ta_unt"]
 
     ta_range = [
         (ta - ta_fc, ta + ta_fc, 1.0),
@@ -167,23 +173,32 @@ def grade_submission():
 
     ta_grd = 0.0
     ta_grd += next((grade for lower, upper, grade in ta_range if lower <= ta_sub <= upper),0)
+    ta_grd += float(ta_sub_unt == "Full Credit")
 
     wrk_grd = 0.0
     for work in ["wrk_strip1","wrk_strip2","wrk_strip3","wrk_strip4"]:
-        if st.session_state[work] == "fc":
+        if st.session_state[work] == "Full Credit":
+            wrk_grd += 2.0
+        elif st.session_state[work] == "Partial Credit":
             wrk_grd += 1.0
         else:
-            wrkq_grd += 0.0
+            wrk_grd += 0.0
 
     st.session_state["tbl_grd"] = tbl_grd
     st.session_state["ta_grd"] = ta_grd
-    st.session_state["wrk_grade"] = wrk_grd
+    st.session_state["wrk_grd"] = wrk_grd
     st.session_state["final_grade"] = tbl_grd + ta_grd + wrk_grd
+
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    gc = conn.read(ttl=0)
+    column_name = "Practical assignment 5 [Total Pts: 13 Score] |2934611"
+    gc.loc[gc["Username"] == emplid, column_name] = st.session_state["final_grade"]
+    conn.update(data=gc)
     
-    cv.putText(warped_img,str(df.iloc[df["s"] == 1, 13]),(2325,645), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(warped_img,str(df.iloc[df["s"] == 2, 13]),(2325,714), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(warped_img,str(df.iloc[df["s"] == 3, 13]),(2325,783), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
-    cv.putText(warped_img,str(df.iloc[df["s"] == 4, 13]),(2325,845), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img,str(df.iloc[df["s"] == 1, 13].item()),(2325,645), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img,str(df.iloc[df["s"] == 2, 13].item()),(2325,714), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img,str(df.iloc[df["s"] == 3, 13].item()),(2325,783), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
+    cv.putText(warped_img,str(df.iloc[df["s"] == 4, 13].item()),(2325,845), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
 
     cv.putText(warped_img,str(ta_grd),(2325,1083), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
     cv.putText(warped_img,str(wrk_grd),(1869,1608), cv.FONT_HERSHEY_SIMPLEX, 2.0, (0,0,255), 1)
@@ -198,8 +213,15 @@ def grade_submission():
 def next_submission():
     st.session_state["script_index"] += 1
     del st.session_state["graded_submission"]
+    st.session_state["editor_version"] += 1
     # ==============================
-    
+    edited_df.iloc[:, 1:3] = None
+    st.session_state["sub_ta"] = ""
+    st.session_state["sub_ta_unt"] = None
+    st.session_state["wrk_strip1"] = None
+    st.session_state["wrk_strip2"] = None
+    st.session_state["wrk_strip3"] = None
+    st.session_state["wrk_strip4"] = None
     
     st.rerun()
 
@@ -266,7 +288,10 @@ if "script_index" not in st.session_state:
     st.session_state["script_index"] = 0
 
 if "uploader_key" not in st.session_state:
-    st.session_state["uploader_key"] = 0
+    st.session_state["uploader_key"] = 100
+
+if "editor_version" not in st.session_state:
+    st.session_state["editor_version"] = 200
 
 # load class list and submission
 with st.sidebar:
@@ -417,10 +442,10 @@ if uploaded_files and grader.strip():
                          hide_index = True)
 
         raw_table = [
-            {"strip": 1, "length": "", "width": "", "area": ""},
-            {"strip": 2, "length": "", "width": "", "area": ""},
-            {"strip": 3, "length": "", "width": "", "area": ""},
-            {"strip": 4, "length": "", "width": "", "area": ""}
+            {"strip": 1, "length": None, "width": None, "area": None},
+            {"strip": 2, "length": None, "width": None, "area": None},
+            {"strip": 3, "length": None, "width": None, "area": None},
+            {"strip": 4, "length": None, "width": None, "area": None}
         ]
 
         sub_df = pd.DataFrame(raw_table)
@@ -450,7 +475,7 @@ if uploaded_files and grader.strip():
             },
             hide_index = True,
             use_container_width = True,
-            key = "sub_ans"
+            key = str(st.session_state["editor_version"])
         )
 
         tot_col1, tot_col2 = st.columns(2)
@@ -470,27 +495,27 @@ if uploaded_files and grader.strip():
 
         with wrk_col1:
             st.selectbox("Strip 1",
-                         ("Full Credit", "No Credit"),
+                         ("Full Credit", "Partial Credit", "No Credit"),
                          index = None,
                          placeholder = "Make a selection...",
                          key = "wrk_strip1")
         with wrk_col2:
             st.selectbox("Strip 2",
-                         ("Full Credit", "No Credit"),
+                         ("Full Credit", "Partial Credit", "No Credit"),
                          index = None,
                          placeholder = "Make a selection...",
                          key = "wrk_strip2")
 
         with wrk_col3:
             st.selectbox("Strip 3",
-                         ("Full Credit", "No Credit"),
+                         ("Full Credit", "Partial Credit", "No Credit"),
                          index = None,
                          placeholder = "Make a selection...",
                          key = "wrk_strip3")
 
         with wrk_col4:
             st.selectbox("Strip 4",
-                         ("Full Credit", "No Credit"),
+                         ("Full Credit", "Partial Credit","No Credit"),
                          index = None,
                          placeholder = "Make a selection...",
                          key = "wrk_strip4")
