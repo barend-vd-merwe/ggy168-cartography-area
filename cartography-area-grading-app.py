@@ -310,7 +310,7 @@ with open ("memo.yaml", "r", encoding = "utf-8") as file:
 
 valid_pin = st.secrets.get("secret_pin")
         
-if uploaded_files and grader.strip() and pin == valid_pin:
+if uploaded_files and grader.strip() and st.session_state["user_pin"] == valid_pin:
     total_scripts = len(uploaded_files)
     current_script = st.session_state["script_index"] + 1
     progress = min(current_script / total_scripts, 1.0)
