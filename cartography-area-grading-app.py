@@ -11,6 +11,7 @@ import base64
 from datetime import datetime
 import yaml
 from streamlit_gsheets import GSheetsConnection
+import gc
 
 # custom functions
 # ------------------------------------------------------------
@@ -212,8 +213,9 @@ def grade_submission():
 
 def next_submission():
     st.session_state["script_index"] += 1
-    del st.session_state["graded_submission"]
     st.session_state["editor_version"] += 1
+    del st.session_state["graded_submission"]
+    gc.collect()
     # ==============================
     edited_df.iloc[:, 1:3] = None
     st.session_state["sub_ta"] = ""
@@ -326,7 +328,6 @@ if uploaded_files and grader.strip() and st.session_state["user_pin"].strip() ==
     # store the submission in memory as cv2 object
     img_bytes = np.frombuffer(image.getvalue(), dtype=np.uint8)
     cv_img = cv.imdecode(img_bytes, cv.IMREAD_COLOR)
-    img_gray = cv.cvtColor(cv_img, cv.COLOR_BGR2GRAY)
 
     # prepare values for detector
     aruco_dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
@@ -341,7 +342,7 @@ if uploaded_files and grader.strip() and st.session_state["user_pin"].strip() ==
 
     try:
         # use detector to detect aruco markers
-        corners, ids, _ = detector.detectMarkers(img_gray)
+        corners, ids, _ = detector.detectMarkers(cv_img)
 
         # get the coordinates of the center points of each aruco marker
         ids = ids.flatten().tolist()
@@ -396,11 +397,12 @@ if uploaded_files and grader.strip() and st.session_state["user_pin"].strip() ==
                                         flags=cv.INTER_LINEAR,
                                         borderMode=cv.BORDER_CONSTANT,
                                         borderValue=(255, 255, 255))
-        
-        st.session_state["submission"] = warped_img
 
-        processed_img = cv.imencode(".png",warped_img)[1]
-        b64_str = base64.b64encode(processed_img).decode("utf-8")
+        del cv_img
+        gc.collect()
+        
+        _, disp_img = cv.imencode(".jpg",warped_img, [int(cv.IMWRITE_JPEG_QUALITY), 80])
+        b64_str = base64.b64encode(disp_img).decode("utf-8")
         img_url = f"data:image/png;base64,{b64_str}"
 
 
