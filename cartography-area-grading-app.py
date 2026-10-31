@@ -445,7 +445,7 @@ if uploaded_files and grader.strip() and st.session_state["user_pin"].strip() ==
             eg_tbl = pd.DataFrame(eg_tbl)
 
             st.dataframe(eg_tbl,
-                         use_container_width = True,
+                         width="stretch",
                          hide_index = True)
 
         raw_table = [
@@ -481,7 +481,7 @@ if uploaded_files and grader.strip() and st.session_state["user_pin"].strip() ==
                 )
             },
             hide_index = True,
-            use_container_width = True,
+            width = "stretch",
             key = str(st.session_state["editor_version"])
         )
 
